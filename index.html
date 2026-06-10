@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes">
-    <title>Pengingat PR - Homework Reminder</title>
+    <title>Pengingat PR dengan Suara - Homework Reminder</title>
     <style>
         * {
             margin: 0;
@@ -423,7 +423,7 @@
 <div class="container">
     <div class="header">
         <h1>📚 Homework Reminder</h1>
-        <p>Jangan lewatkan tugasmu!</p>
+        <p>Jangan lewatkan tugasmu! (Notifikasi + SUARA)</p>
     </div>
 
     <div class="notification-status" id="notificationStatus">
@@ -491,6 +491,70 @@
         }, 2000);
     }
 
+    let audioContext = null;
+    function playNotificationSound() {
+        try {
+            if (window.AudioContext || window.webkitAudioContext) {
+                if (!audioContext) {
+                    audioContext = new (window.AudioContext || window.webkitAudioContext)();
+                }
+                if (audioContext.state === 'suspended') {
+                    audioContext.resume().then(() => {
+                        playBeepSound();
+                    }).catch(e => console.log("AudioContext resume error:", e));
+                } else {
+                    playBeepSound();
+                }
+            } else {
+                playFallbackBeep();
+            }
+        } catch(e) {
+            console.warn("Gagal memutar suara via Web Audio:", e);
+            playFallbackBeep();
+        }
+    }
+
+    function playBeepSound() {
+        if (!audioContext) return;
+        const now = audioContext.currentTime;
+        const oscillator = audioContext.createOscillator();
+        const gainNode = audioContext.createGain();
+        oscillator.connect(gainNode);
+        gainNode.connect(audioContext.destination);
+        oscillator.type = 'sine';
+        oscillator.frequency.value = 880;
+        gainNode.gain.value = 0.3;
+        oscillator.start();
+        gainNode.gain.exponentialRampToValueAtTime(0.00001, now + 0.6);
+        oscillator.stop(now + 0.5);
+        setTimeout(() => {
+            if (audioContext) {
+                const osc2 = audioContext.createOscillator();
+                const gain2 = audioContext.createGain();
+                osc2.connect(gain2);
+                gain2.connect(audioContext.destination);
+                osc2.type = 'sine';
+                osc2.frequency.value = 660;
+                gain2.gain.value = 0.3;
+                osc2.start();
+                gain2.gain.exponentialRampToValueAtTime(0.00001, audioContext.currentTime + 0.45);
+                osc2.stop(audioContext.currentTime + 0.4);
+            }
+        }, 200);
+    }
+
+    function playFallbackBeep() {
+        try {
+            if (window.AudioContext || window.webkitAudioContext) {
+                if (!audioContext) audioContext = new (window.AudioContext || window.webkitAudioContext)();
+                if (audioContext.state === 'running') playBeepSound();
+                else audioContext.resume().then(() => playBeepSound()).catch(e=>{});
+            } else {
+                console.log("Browser tidak support Web Audio, tidak bisa mainkan beep");
+            }
+        } catch(e) { console.log("Fallback gagal"); }
+    }
+
     async function requestNotificationPermission() {
         if (!("Notification" in window)) {
             showToast("⚠️ Browser tidak mendukung notifikasi", true);
@@ -500,7 +564,8 @@
         if (Notification.permission === "granted") {
             notificationPermissionGranted = true;
             updateNotificationUI();
-            showToast("✅ Notifikasi sudah aktif! Anda akan mendapat pengingat H-1 deadline");
+            enableAudioContextOnUserGesture();
+            showToast("✅ Notifikasi sudah aktif! Pengingat H-1 + suara akan muncul");
             return true;
         }
         
@@ -509,12 +574,14 @@
             notificationPermissionGranted = permission === "granted";
             updateNotificationUI();
             if (notificationPermissionGranted) {
-                showToast("🔔 Notifikasi diaktifkan! Pengingat H-1 akan muncul otomatis");
-                new Notification("🔔 Notifikasi Aktif!", {
-                    body: "Pengingat PR akan mengingatkan Anda H-1 sebelum deadline",
-                    icon: "https://emojicdn.elk.sh/📚",
+                enableAudioContextOnUserGesture();
+                showToast("🔔 Notifikasi diaktifkan! Pengingat H-1 + suara akan muncul otomatis");
+                new Notification("🔔 Notifikasi Aktif + Suara!", {
+                    body: "Pengingat PR akan membunyikan beep saat H-1 deadline.",
+                    icon: "https://emojicdn.elk.sh/🔊",
                     silent: false
                 });
+                playNotificationSound();
                 checkAndSendH1Reminders();
             } else {
                 showToast("⚠️ Izin notifikasi ditolak, pengingat H-1 tidak akan muncul", true);
@@ -525,15 +592,26 @@
         return false;
     }
 
+    function enableAudioContextOnUserGesture() {
+        if (audioContext && audioContext.state === 'suspended') {
+            audioContext.resume().catch(e=>console.log("resume gagal", e));
+        } else if (!audioContext) {
+            try {
+                audioContext = new (window.AudioContext || window.webkitAudioContext)();
+                audioContext.resume();
+            } catch(e) {}
+        }
+    }
+
     function updateNotificationUI() {
         if (notificationPermissionGranted) {
             notificationStatusDiv.innerHTML = `
-                <span>🔔 Status Notifikasi H-1:</span>
-                <span class="notif-active">✅ Aktif - Pengingat akan muncul H-1 deadline</span>
+                <span>🔔 Status Notifikasi H-1 (+Suara):</span>
+                <span class="notif-active">✅ Aktif - Pengingat muncul H-1 deadline dengan BEEP</span>
             `;
         } else {
             notificationStatusDiv.innerHTML = `
-                <span>🔔 Status Notifikasi H-1:</span>
+                <span>🔔 Status Notifikasi H-1 (+Suara):</span>
                 <button id="enableNotifBtn" class="notif-btn">Klik Notifikasi</button>
             `;
             const newBtn = document.getElementById("enableNotifBtn");
@@ -551,7 +629,7 @@
         const now = new Date();
         const hoursDiff = (deadlineDate - now) / (1000 * 60 * 60);
         
-        if (hoursDiff > 23 && hoursDiff <= 25) {
+        if (hoursDiff > 22.5 && hoursDiff <= 25.5) {
             const formattedDeadline = deadlineDate.toLocaleString("id-ID", {
                 day: 'numeric', month: 'long', year: 'numeric',
                 hour: '2-digit', minute: '2-digit'
@@ -563,10 +641,13 @@
                     icon: "https://emojicdn.elk.sh/⏰",
                     tag: `h1_${task.id}`,
                     requireInteraction: true,
-                    silent: false
+                    silent: false,
+                    vibrate: [200, 100, 200]
                 });
+                playNotificationSound();
                 return true;
             } catch(e) {
+                console.warn("Notifikasi gagal", e);
                 return false;
             }
         }
@@ -595,7 +676,7 @@
             const now = new Date();
             const hoursDiff = (deadlineDate - now) / (1000 * 60 * 60);
             
-            if (hoursDiff > 23 && hoursDiff <= 25 && !sentTasks.has(task.id)) {
+            if (hoursDiff > 22.5 && hoursDiff <= 25.5 && !sentTasks.has(task.id)) {
                 if (sendH1Notification(task)) {
                     sentTasks.add(task.id);
                     hasNewNotification = true;
@@ -605,7 +686,7 @@
         
         if (hasNewNotification) {
             localStorage.setItem(sentKey, JSON.stringify([...sentTasks]));
-            showToast("🔔 Pengingat H-1 telah dikirim untuk tugas yang mendekati deadline");
+            showToast("🔔 Pengingat H-1 beserta suara telah dikirim untuk tugas yang mendekati deadline");
         }
     }
 
@@ -704,7 +785,7 @@
             
             if (!task.completed && task.deadline) {
                 if (h1Status && !isOverdue(task.deadline)) {
-                    reminderBadge = '<span class="reminder-badge">⚠️ H-1! Kerjakan segera</span>';
+                    reminderBadge = '<span class="reminder-badge">⚠️ H-1! Kerjakan segera (suara menyala)</span>';
                     deadlineExtra = " (🔔 H-1 deadline!)";
                 } else if (isOverdue(task.deadline)) {
                     deadlineExtra = " (📢 Lewat deadline!)";
@@ -845,11 +926,11 @@
     if (enableNotifBtn) {
         enableNotifBtn.addEventListener("click", requestNotificationPermission);
     }
-
+    
     if (reminderInterval) clearInterval(reminderInterval);
     reminderInterval = setInterval(() => {
         checkAndSendH1Reminders();
-    }, 60 * 60 * 1000); 
+    }, 30 * 60 * 1000); 
 
     window.addEventListener("storage", (event) => {
         if (event.key === "homework_reminder") {
@@ -868,6 +949,12 @@
     if ("Notification" in window && Notification.permission === "granted") {
         notificationPermissionGranted = true;
         updateNotificationUI();
+        document.body.addEventListener('click', function enableAudioOnFirstClick() {
+            if (audioContext && audioContext.state === 'suspended') {
+                audioContext.resume();
+            }
+            document.body.removeEventListener('click', enableAudioOnFirstClick);
+        });
     }
 
     loadTasks();
@@ -879,6 +966,13 @@
         if (notificationPermissionGranted) {
             checkAndSendH1Reminders();
         }
+        const enableAudio = () => {
+            if (audioContext && audioContext.state === 'suspended') audioContext.resume();
+            document.body.removeEventListener('touchstart', enableAudio);
+            document.body.removeEventListener('click', enableAudio);
+        };
+        document.body.addEventListener('click', enableAudio);
+        document.body.addEventListener('touchstart', enableAudio);
     }, 1000);
 </script>
 </body>
