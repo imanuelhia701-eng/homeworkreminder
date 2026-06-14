@@ -85,15 +85,6 @@
             transform: none;
         }
 
-        .notif-active {
-            background: #10b981;
-            color: white;
-            padding: 6px 16px;
-            border-radius: 30px;
-            font-size: 0.75rem;
-            font-weight: bold;
-        }
-
         .form-tugas {
             padding: 24px 28px 16px;
             background: #f8fafc;
@@ -427,8 +418,7 @@
     </div>
 
     <div class="notification-status" id="notificationStatus">
-        <span>🔔 Status Notifikasi H-1:</span>
-        <button id="enableNotifBtn" class="notif-btn">Klik Notifikasi</button>
+        <span>🔔 Memuat status...</span>
     </div>
 
     <div class="form-tugas">
@@ -468,6 +458,7 @@
 <script>
     let tasks = [];
     let activeFilter = "semua";
+    let notificationEnabled = false;
     let notificationPermissionGranted = false;
     let reminderInterval = null;
 
@@ -478,7 +469,6 @@
     const container = document.getElementById("daftarTugasContainer");
     const filterBtns = document.querySelectorAll(".filter-btn");
     const toastEl = document.getElementById("toastMsg");
-    const enableNotifBtn = document.getElementById("enableNotifBtn");
     const notificationStatusDiv = document.getElementById("notificationStatus");
 
     let toastTimeout;
@@ -492,67 +482,50 @@
     }
 
     let audioContext = null;
-    function playNotificationSound() {
-        try {
-            if (window.AudioContext || window.webkitAudioContext) {
-                if (!audioContext) {
-                    audioContext = new (window.AudioContext || window.webkitAudioContext)();
-                }
-                if (audioContext.state === 'suspended') {
-                    audioContext.resume().then(() => {
-                        playBeepSound();
-                    }).catch(e => console.log("AudioContext resume error:", e));
-                } else {
-                    playBeepSound();
-                }
-            } else {
-                playFallbackBeep();
-            }
-        } catch(e) {
-            console.warn("Gagal memutar suara via Web Audio:", e);
-            playFallbackBeep();
+
+    async function playNotificationSound() {
+        if (!notificationEnabled) {
+            return;
         }
-    }
-
-    function playBeepSound() {
-        if (!audioContext) return;
-        const now = audioContext.currentTime;
-        const oscillator = audioContext.createOscillator();
-        const gainNode = audioContext.createGain();
-        oscillator.connect(gainNode);
-        gainNode.connect(audioContext.destination);
-        oscillator.type = 'sine';
-        oscillator.frequency.value = 880;
-        gainNode.gain.value = 0.3;
-        oscillator.start();
-        gainNode.gain.exponentialRampToValueAtTime(0.00001, now + 0.6);
-        oscillator.stop(now + 0.5);
-        setTimeout(() => {
-            if (audioContext) {
-                const osc2 = audioContext.createOscillator();
-                const gain2 = audioContext.createGain();
-                osc2.connect(gain2);
-                gain2.connect(audioContext.destination);
-                osc2.type = 'sine';
-                osc2.frequency.value = 660;
-                gain2.gain.value = 0.3;
-                osc2.start();
-                gain2.gain.exponentialRampToValueAtTime(0.00001, audioContext.currentTime + 0.45);
-                osc2.stop(audioContext.currentTime + 0.4);
-            }
-        }, 200);
-    }
-
-    function playFallbackBeep() {
+        
         try {
-            if (window.AudioContext || window.webkitAudioContext) {
-                if (!audioContext) audioContext = new (window.AudioContext || window.webkitAudioContext)();
-                if (audioContext.state === 'running') playBeepSound();
-                else audioContext.resume().then(() => playBeepSound()).catch(e=>{});
-            } else {
-                console.log("Browser tidak support Web Audio, tidak bisa mainkan beep");
+            if (!audioContext) {
+                audioContext = new (window.AudioContext || window.webkitAudioContext)();
             }
-        } catch(e) { console.log("Fallback gagal"); }
+
+            if (audioContext.state === "suspended") {
+                await audioContext.resume();
+            }
+
+            const osc1 = audioContext.createOscillator();
+            const gain1 = audioContext.createGain();
+            osc1.connect(gain1);
+            gain1.connect(audioContext.destination);
+            osc1.type = "sine";
+            osc1.frequency.setValueAtTime(880, audioContext.currentTime);
+            gain1.gain.setValueAtTime(0.3, audioContext.currentTime);
+            osc1.start();
+            osc1.stop(audioContext.currentTime + 0.3);
+            gain1.gain.exponentialRampToValueAtTime(0.00001, audioContext.currentTime + 0.3);
+
+            setTimeout(() => {
+                if (audioContext && audioContext.state === "running" && notificationEnabled) {
+                    const osc2 = audioContext.createOscillator();
+                    const gain2 = audioContext.createGain();
+                    osc2.connect(gain2);
+                    gain2.connect(audioContext.destination);
+                    osc2.type = "sine";
+                    osc2.frequency.setValueAtTime(660, audioContext.currentTime);
+                    gain2.gain.setValueAtTime(0.3, audioContext.currentTime);
+                    osc2.start();
+                    osc2.stop(audioContext.currentTime + 0.3);
+                    gain2.gain.exponentialRampToValueAtTime(0.00001, audioContext.currentTime + 0.3);
+                }
+            }, 350);
+
+        } catch (err) {
+            console.error("Gagal memutar suara:", err);
+        }
     }
 
     async function requestNotificationPermission() {
@@ -560,67 +533,94 @@
             showToast("⚠️ Browser tidak mendukung notifikasi", true);
             return false;
         }
-        
+
         if (Notification.permission === "granted") {
             notificationPermissionGranted = true;
+            notificationEnabled = true;
+            saveNotificationStatus();
             updateNotificationUI();
-            enableAudioContextOnUserGesture();
-            showToast("✅ Notifikasi sudah aktif! Pengingat H-1 + suara akan muncul");
+
+            playNotificationSound();
+            showToast("🔔 Notifikasi diaktifkan");
             return true;
         }
-        
-        if (Notification.permission !== "denied") {
-            const permission = await Notification.requestPermission();
-            notificationPermissionGranted = permission === "granted";
+
+        const permission = await Notification.requestPermission();
+
+        if (permission === "granted") {
+            notificationPermissionGranted = true;
+            notificationEnabled = true;
+            saveNotificationStatus();
+
             updateNotificationUI();
-            if (notificationPermissionGranted) {
-                enableAudioContextOnUserGesture();
-                showToast("🔔 Notifikasi diaktifkan! Pengingat H-1 + suara akan muncul otomatis");
-                new Notification("🔔 Notifikasi Aktif + Suara!", {
-                    body: "Pengingat PR akan membunyikan beep saat H-1 deadline.",
-                    icon: "https://emojicdn.elk.sh/🔊",
-                    silent: false
-                });
-                playNotificationSound();
-                checkAndSendH1Reminders();
-            } else {
-                showToast("⚠️ Izin notifikasi ditolak, pengingat H-1 tidak akan muncul", true);
-            }
-            return notificationPermissionGranted;
+
+            new Notification("🔔 Notifikasi Aktif", {
+                body: "Pengingat PR berhasil diaktifkan."
+            });
+
+            playNotificationSound();
+            showToast("🔔 Notifikasi diaktifkan");
+
+            return true;
         }
-        showToast("⚠️ Izin notifikasi sudah ditolak. Aktifkan di pengaturan browser", true);
+
+        showToast("⚠️ Izin notifikasi ditolak", true);
         return false;
     }
 
-    function enableAudioContextOnUserGesture() {
-        if (audioContext && audioContext.state === 'suspended') {
-            audioContext.resume().catch(e=>console.log("resume gagal", e));
-        } else if (!audioContext) {
-            try {
-                audioContext = new (window.AudioContext || window.webkitAudioContext)();
-                audioContext.resume();
-            } catch(e) {}
+    function disableNotifications() {
+        if (!confirm("Matikan notifikasi PR?")) {
+            return;
         }
+
+        notificationEnabled = false;
+        saveNotificationStatus();
+
+        updateNotificationUI();
+        showToast("🔕 Notifikasi dimatikan");
     }
 
     function updateNotificationUI() {
-        if (notificationPermissionGranted) {
+        if (notificationEnabled) {
             notificationStatusDiv.innerHTML = `
-                <span>🔔 Status Notifikasi H-1 (+Suara):</span>
-                <span class="notif-active">✅ Aktif - Pengingat muncul H-1 deadline dengan BEEP</span>
+                <span>🔔 Notifikasi Aktif</span>
+                <button id="disableNotifBtn"
+                        class="notif-btn"
+                        style="background:#ef4444;">
+                    🔕 Matikan
+                </button>
             `;
+
+            const disableBtn = document.getElementById("disableNotifBtn");
+            if (disableBtn) {
+                disableBtn.addEventListener("click", disableNotifications);
+            }
+
         } else {
             notificationStatusDiv.innerHTML = `
-                <span>🔔 Status Notifikasi H-1 (+Suara):</span>
-                <button id="enableNotifBtn" class="notif-btn">Klik Notifikasi</button>
+                <span>🔕 Notifikasi Tidak Aktif</span>
+                <button id="enableNotifBtn"
+                        class="notif-btn">
+                    🔔 Aktifkan
+                </button>
             `;
-            const newBtn = document.getElementById("enableNotifBtn");
-            if (newBtn) newBtn.addEventListener("click", requestNotificationPermission);
+
+            const enableBtn = document.getElementById("enableNotifBtn");
+            if (enableBtn) {
+                enableBtn.addEventListener("click", requestNotificationPermission);
+            }
         }
     }
 
+    function saveNotificationStatus() {
+        localStorage.setItem("notification_enabled", notificationEnabled);
+    }
+
     function sendH1Notification(task) {
-        if (!notificationPermissionGranted) return false;
+        if (!notificationEnabled) return false;
+        if (Notification.permission !== "granted") {
+            return false;
+        }
         if (task.completed) return false;
         
         const deadlineDate = new Date(task.deadline);
@@ -655,7 +655,7 @@
     }
 
     function checkAndSendH1Reminders() {
-        if (!notificationPermissionGranted) return;
+        if (!notificationEnabled) return;
         
         const sentKey = "h1_notifications_sent";
         let sentTasks = new Set();
@@ -702,6 +702,17 @@
         } else {
             tasks = [];
         }
+        
+        const savedNotifStatus = localStorage.getItem("notification_enabled");
+        if (savedNotifStatus !== null) {
+            notificationEnabled = savedNotifStatus === "true";
+            notificationPermissionGranted = notificationEnabled;
+        } else {
+            notificationEnabled = Notification.permission === "granted";
+            notificationPermissionGranted = notificationEnabled;
+        }
+        
+        updateNotificationUI();
         renderTasks();
     }
 
@@ -736,6 +747,16 @@
         const now = new Date();
         const deadlineDate = new Date(deadlineStr);
         return deadlineDate < now;
+    }
+
+    function escapeHtml(str) {
+        if (!str) return "";
+        return str.replace(/[&<>]/g, function(m) {
+            if (m === '&') return '&amp;';
+            if (m === '<') return '&lt;';
+            if (m === '>') return '&gt;';
+            return m;
+        });
     }
 
     function renderTasks() {
@@ -830,16 +851,6 @@
         });
     }
 
-    function escapeHtml(str) {
-        if (!str) return "";
-        return str.replace(/[&<>]/g, function(m) {
-            if (m === '&') return '&amp;';
-            if (m === '<') return '&lt;';
-            if (m === '>') return '&gt;';
-            return m;
-        });
-    }
-
     function addTask() {
         const nama = namaInput.value.trim();
         if (nama === "") {
@@ -915,7 +926,6 @@
     });
 
     tambahBtn.addEventListener("click", addTask);
-
     namaInput.addEventListener("keypress", (e) => {
         if (e.key === "Enter") {
             e.preventDefault();
@@ -923,14 +933,10 @@
         }
     });
 
-    if (enableNotifBtn) {
-        enableNotifBtn.addEventListener("click", requestNotificationPermission);
-    }
-    
     if (reminderInterval) clearInterval(reminderInterval);
     reminderInterval = setInterval(() => {
         checkAndSendH1Reminders();
-    }, 30 * 60 * 1000); 
+    }, 5 * 60 * 1000);
 
     window.addEventListener("storage", (event) => {
         if (event.key === "homework_reminder") {
@@ -946,28 +952,20 @@
         }
     });
 
-    if ("Notification" in window && Notification.permission === "granted") {
-        notificationPermissionGranted = true;
-        updateNotificationUI();
-        document.body.addEventListener('click', function enableAudioOnFirstClick() {
-            if (audioContext && audioContext.state === 'suspended') {
-                audioContext.resume();
-            }
-            document.body.removeEventListener('click', enableAudioOnFirstClick);
-        });
-    }
-
     loadTasks();
 
     setTimeout(() => {
         if (tasks.length === 0) {
             showToast("💾 Data akan tersimpan otomatis setelah Anda menambah PR", false);
         }
-        if (notificationPermissionGranted) {
+        if (notificationEnabled) {
             checkAndSendH1Reminders();
         }
+        
         const enableAudio = () => {
-            if (audioContext && audioContext.state === 'suspended') audioContext.resume();
+            if (notificationEnabled && audioContext && audioContext.state === 'suspended') {
+                audioContext.resume();
+            }
             document.body.removeEventListener('touchstart', enableAudio);
             document.body.removeEventListener('click', enableAudio);
         };
