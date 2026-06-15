@@ -799,6 +799,45 @@
         return deadlineDate < now;
     }
 
+    function removeExpiredTasks() {
+        const now = new Date();
+        const gracePeriod = 30 * 60 * 1000;
+
+        let sentTasks = new Set();
+        try {
+            const stored = localStorage.getItem("h1_notifications_sent");
+            if (stored) {
+                sentTasks = new Set(JSON.parse(stored));
+            }
+        } catch(e) {}
+
+        const beforeCount = tasks.length;
+
+        tasks = tasks.filter(task => {
+            if (!task.deadline) return true;
+
+            const deadlineDate = new Date(task.deadline);
+
+            if (task.completed) return true;
+
+            const keepTask = deadlineDate.getTime() + gracePeriod > now.getTime();
+
+            if (!keepTask) {
+                sentTasks.delete(task.id);
+            }
+
+            return keepTask;
+        });
+
+        if (tasks.length !== beforeCount) {
+            localStorage.setItem("h1_notifications_sent", JSON.stringify([...sentTasks]));
+
+            saveTasks(true);
+            renderTasks();
+            showToast("🗑️ Tugas yang lewat deadline telah dihapus otomatis");
+        }
+    }
+
     function escapeHtml(str) {
         if (!str) return "";
         return str.replace(/[&<>]/g, function(m) {
@@ -960,6 +999,18 @@
     function deleteTask(id) {
         if (confirm("Hapus PR ini secara permanen?")) {
             tasks = tasks.filter(t => t.id !== id);
+            
+            let sentTasks = new Set();
+            try {
+                const stored = localStorage.getItem("h1_notifications_sent");
+                if (stored) {
+                    sentTasks = new Set(JSON.parse(stored));
+                }
+            } catch(e) {}
+            
+            sentTasks.delete(id);
+            localStorage.setItem("h1_notifications_sent", JSON.stringify([...sentTasks]));
+            
             saveTasks(false);
             renderTasks();
             showToast("🗑 PR telah dihapus");
@@ -984,9 +1035,11 @@
     });
 
     if (reminderInterval) clearInterval(reminderInterval);
+
     reminderInterval = setInterval(() => {
         checkAndSendH1Reminders();
-    }, 5 * 60 * 1000);
+        removeExpiredTasks();
+    }, 60 * 1000);
 
     window.addEventListener("storage", (event) => {
         if (event.key === "homework_reminder") {
@@ -1009,6 +1062,7 @@
     }
 
     loadTasks();
+    removeExpiredTasks();
 
     setTimeout(() => {
         if (tasks.length === 0) {
