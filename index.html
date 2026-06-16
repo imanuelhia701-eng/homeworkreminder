@@ -266,16 +266,21 @@
 
         .task-meta {
             display: flex;
-            gap: 16px;
+            justify-content: space-between;
+            align-items: center;
             margin-top: 10px;
             font-size: 0.7rem;
             color: #718096;
+            gap: 10px;
             flex-wrap: wrap;
         }
 
         .task-id {
+            margin-left: auto;
             font-size: 0.65rem;
             opacity: 0.7;
+            text-align: right;
+            white-space: nowrap;
         }
 
         .deadline {
@@ -427,6 +432,10 @@
             .filter-btn {
                 padding: 5px 12px;
                 font-size: 0.75rem;
+            }
+
+            .task-id {
+                font-size: 0.6rem;
             }
         }
     </style>
