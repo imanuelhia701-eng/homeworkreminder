@@ -469,7 +469,7 @@
                 <textarea id="deskripsiTugas" rows="2" placeholder="Catatan tambahan..."></textarea>
             </div>
             
-            <button id="tambahBtn">➕ Tambah PR</button>
+            <button id="tambahBtn">➕ Tambahkan</button>
         </div>
     </div>
 
@@ -923,7 +923,7 @@
             
             if (!task.completed && task.deadline) {
                 if (h1Status && !isOverdue(task.deadline)) {
-                    reminderBadge = '<span class="reminder-badge">⚠️ H-1! Kerjakan segera (suara menyala)</span>';
+                    reminderBadge = '<span class="reminder-badge">⚠️ H-1! Kerjakan segera</span>';
                     deadlineExtra = " (🔔 H-1 deadline!)";
                 } else if (isOverdue(task.deadline)) {
                     deadlineExtra = " (📢 Lewat deadline!)";
