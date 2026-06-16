@@ -232,8 +232,7 @@
             border-left: 5px solid #667eea;
             transition: all 0.2s;
             display: flex;
-            justify-content: space-between;
-            align-items: flex-start;
+            flex-direction: column;
             gap: 12px;
         }
 
@@ -312,19 +311,30 @@
 
         .task-actions {
             display: flex;
-            flex-direction: column;
-            gap: 8px;
+            flex-wrap: wrap;
+            justify-content: flex-end;
+            gap: 10px;
+            margin-top: 4px;
+            border-top: 1px solid #f1f5f9;
+            padding-top: 12px;
         }
 
-        .btn-selesai, .btn-hapus {
+        .btn-selesai, .btn-hapus, .undo-selesai {
             border: none;
-            padding: 6px 12px;
+            padding: 10px 18px;
             border-radius: 30px;
-            font-size: 0.7rem;
+            font-size: 0.8rem;
             font-weight: bold;
             cursor: pointer;
             width: auto;
             margin: 0;
+            min-width: 90px;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            gap: 6px;
+            transition: all 0.15s ease;
+            flex: 1 1 auto;
         }
 
         .btn-selesai {
@@ -332,9 +342,26 @@
             color: white;
         }
 
+        .btn-selesai:active {
+            transform: scale(0.94);
+        }
+
+        .undo-selesai {
+            background: #9ca3af;
+            color: white;
+        }
+
+        .undo-selesai:active {
+            transform: scale(0.94);
+        }
+
         .btn-hapus {
             background: #ef4444;
             color: white;
+        }
+
+        .btn-hapus:active {
+            transform: scale(0.94);
         }
 
         .empty-msg {
@@ -375,14 +402,25 @@
             }
             
             .task-item {
-                flex-direction: column;
+                padding: 14px 16px;
+                gap: 10px;
             }
             
             .task-actions {
-                flex-direction: row;
-                justify-content: flex-end;
+                flex-wrap: wrap;
+                justify-content: stretch;
+                gap: 8px;
+                padding-top: 10px;
             }
-            
+
+            .btn-selesai, .btn-hapus, .undo-selesai {
+                flex: 1 1 45%;
+                min-width: 70px;
+                padding: 12px 10px;
+                font-size: 0.8rem;
+                border-radius: 28px;
+            }
+
             .toast-message {
                 white-space: normal;
                 text-align: center;
@@ -408,6 +446,13 @@
             .filter-btn {
                 padding: 5px 12px;
                 font-size: 0.75rem;
+            }
+        }
+
+        @media (max-width: 400px) {
+            .btn-selesai, .btn-hapus, .undo-selesai {
+                flex: 1 1 100%;
+                padding: 14px 10px;
             }
         }
     </style>
@@ -916,7 +961,7 @@
                     </div>
                 </div>
                 <div class="task-actions">
-                    ${!task.completed ? `<button class="btn-selesai" data-id="${task.id}">✔️ Selesai</button>` : `<button class="btn-selesai undo-selesai" data-id="${task.id}" style="background:#9ca3af;">↩️ Batal Selesai</button>`}
+                    ${!task.completed ? `<button class="btn-selesai" data-id="${task.id}">✔️ Selesai</button>` : `<button class="undo-selesai" data-id="${task.id}">↩️ Batal Selesai</button>`}
                     <button class="btn-hapus" data-id="${task.id}">🗑 Hapus</button>
                 </div>
             `;
@@ -925,6 +970,13 @@
         });
 
         document.querySelectorAll(".btn-selesai").forEach(btn => {
+            btn.addEventListener("click", (e) => {
+                e.stopPropagation();
+                const id = parseInt(btn.getAttribute("data-id"));
+                toggleComplete(id);
+            });
+        });
+        document.querySelectorAll(".undo-selesai").forEach(btn => {
             btn.addEventListener("click", (e) => {
                 e.stopPropagation();
                 const id = parseInt(btn.getAttribute("data-id"));
