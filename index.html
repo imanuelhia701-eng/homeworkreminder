@@ -273,6 +273,11 @@
             flex-wrap: wrap;
         }
 
+        .task-id {
+            font-size: 0.65rem;
+            opacity: 0.7;
+        }
+
         .deadline {
             background: #fee2e2;
             padding: 4px 10px;
@@ -925,8 +930,12 @@
                     </div>
                     ${task.deskripsi ? `<div class="task-desc">📄 ${escapeHtml(task.deskripsi)}</div>` : ''}
                     <div class="task-meta">
-                        <span class="deadline ${h1Status ? 'warning' : ''}">⏱️ ${deadlineDisplay}${deadlineExtra}</span>
-                        <span style="font-size:0.65rem; opacity:0.7;">ID: ${task.id}</span>
+                        <span class="deadline ${h1Status ? 'warning' : ''}">
+                            ⏱️ ${deadlineDisplay}${deadlineExtra}
+                        </span>
+                        <span class="task-id">
+                            ID: ${task.id}
+                        </span>
                     </div>
                 </div>
                 <div class="task-actions">
