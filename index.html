@@ -16,21 +16,24 @@
 
         body {
             background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-            min-height: 100vh;
-            padding: 20px;
+            min-height: 100dvh;
+            padding: 10px;
             display: flex;
             justify-content: center;
-            align-items: center;
+            align-items: stretch;
         }
 
         .container {
             max-width: 700px;
             width: 100%;
+            min-height: calc(100dvh - 20px);
             background: rgba(255,255,255,0.95);
-            border-radius: 32px;
+            border-radius: 24px;
             box-shadow: 0 25px 45px rgba(0,0,0,0.2);
             overflow: hidden;
             backdrop-filter: blur(2px);
+            display: flex;
+            flex-direction: column;
         }
 
         .header {
@@ -38,6 +41,7 @@
             color: white;
             padding: 24px 28px;
             text-align: center;
+            flex-shrink: 0;
         }
 
         .header h1 {
@@ -67,6 +71,7 @@
             align-items: center;
             flex-wrap: wrap;
             gap: 10px;
+            flex-shrink: 0;
         }
 
         .notif-btn {
@@ -94,6 +99,7 @@
             display: flex;
             flex-direction: column;
             align-items: center;
+            flex-shrink: 0;
         }
 
         .form-container {
@@ -210,6 +216,7 @@
             border-bottom: 1px solid #e2e8f0;
             flex-wrap: wrap;
             justify-content: center;
+            flex-shrink: 0;
         }
 
         .filter-btn {
@@ -228,7 +235,7 @@
 
         .daftar-tugas {
             padding: 20px 28px 32px;
-            max-height: 450px;
+            flex: 1;
             overflow-y: auto;
         }
 
@@ -417,6 +424,43 @@
         }
 
         @media (max-width: 550px) {
+            body {
+                padding: 0;
+            }
+
+            .container {
+                min-height: 100dvh;
+                border-radius: 0;
+                max-width: 100%;
+            }
+
+            .header h1 {
+                font-size: 2rem;
+            }
+
+            .header p {
+                font-size: 1rem;
+            }
+
+            .input-field input,
+            .deskripsi-field textarea {
+                padding: 14px 16px;
+                font-size: 16px;
+            }
+
+            button {
+                padding: 14px;
+                font-size: 1rem;
+            }
+
+            .task-title {
+                font-size: 1.05rem;
+            }
+
+            .task-desc {
+                font-size: 0.9rem;
+            }
+
             .form-tugas {
                 padding: 20px;
             }
@@ -452,11 +496,6 @@
             .notification-status {
                 flex-direction: column;
                 text-align: center;
-            }
-            
-            .input-field input,
-            .deskripsi-field textarea {
-                font-size: 16px;
             }
             
             .filter-bar {
@@ -509,7 +548,7 @@
         </div>
     </div>
 
-    <div id="resultSection" class="hidden">
+    <div id="resultSection" class="hidden" style="display: flex; flex-direction: column; flex: 1; min-height: 0;">
         <div class="filter-bar">
             <button class="filter-btn active" data-filter="semua">Semua</button>
             <button class="filter-btn" data-filter="belum">Belum selesai</button>
