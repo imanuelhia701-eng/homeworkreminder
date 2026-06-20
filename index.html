@@ -193,6 +193,15 @@
             transform: scale(0.98);
         }
 
+        .btn-lihat {
+            background: #0ea5e9;
+            margin-top: 10px;
+        }
+
+        .btn-lihat:hover {
+            background: #0284c7;
+        }
+
         .filter-bar {
             padding: 12px 28px;
             background: white;
@@ -325,9 +334,10 @@
         .task-actions {
             display: flex;
             width: 100%;
-            justify-content: space-between;
+            justify-content: center;
+            align-items: center;
+            gap: 20px;
             margin-top: 12px;
-            padding: 0 8px;
         }
 
         .btn-selesai,
@@ -354,6 +364,24 @@
         .btn-hapus {
             background: #ef4444;
             color: white;
+        }
+
+        .btn-kembali {
+            background: #64748b;
+            color: white;
+            border: none;
+            padding: 6px 12px;
+            border-radius: 30px;
+            font-size: 0.7rem;
+            font-weight: bold;
+            cursor: pointer;
+            width: 105px;
+            margin: 0;
+        }
+
+        .btn-kembali:hover {
+            background: #475569;
+            transform: scale(0.98);
         }
 
         .empty-msg {
@@ -384,6 +412,10 @@
             opacity: 1;
         }
 
+        .hidden {
+            display: none;
+        }
+
         @media (max-width: 550px) {
             .form-tugas {
                 padding: 20px;
@@ -399,12 +431,15 @@
             
             .task-actions {
                 flex-direction: row;
-                justify-content: space-between;
+                justify-content: center;
+                gap: 12px;
             }
 
             .btn-selesai,
-            .btn-hapus {
-                width: 105px;
+            .btn-hapus,
+            .btn-kembali {
+                width: 90px;
+                font-size: 0.65rem;
             }
             
             .toast-message {
@@ -451,7 +486,7 @@
         <span>🔔 Memuat status...</span>
     </div>
 
-    <div class="form-tugas">
+    <div class="form-tugas" id="formSection">
         <div class="form-container">
             <div class="input-group">
                 <div class="input-field">
@@ -470,17 +505,20 @@
             </div>
             
             <button id="tambahBtn">➕ Tambahkan</button>
+            <button id="lihatBtn" class="btn-lihat">📋 Lihat PR/Tugas</button>
         </div>
     </div>
 
-    <div class="filter-bar">
-        <button class="filter-btn active" data-filter="semua">Semua</button>
-        <button class="filter-btn" data-filter="belum">Belum selesai</button>
-        <button class="filter-btn" data-filter="selesai">Selesai</button>
-    </div>
+    <div id="resultSection" class="hidden">
+        <div class="filter-bar">
+            <button class="filter-btn active" data-filter="semua">Semua</button>
+            <button class="filter-btn" data-filter="belum">Belum selesai</button>
+            <button class="filter-btn" data-filter="selesai">Selesai</button>
+        </div>
 
-    <div class="daftar-tugas" id="daftarTugasContainer">
-        <div class="empty-msg">✨ Belum ada PR. Tambah tugas di atas!</div>
+        <div class="daftar-tugas" id="daftarTugasContainer">
+            <div class="empty-msg">📭 Tidak ada PR/Tugas 😃</div>
+        </div>
     </div>
 </div>
 <div id="toastMsg" class="toast-message">✅ Tersimpan ke penyimpanan lokal</div>
@@ -496,6 +534,7 @@
     const deadlineInput = document.getElementById("deadlineTugas");
     const deskripsiInput = document.getElementById("deskripsiTugas");
     const tambahBtn = document.getElementById("tambahBtn");
+    const lihatBtn = document.getElementById("lihatBtn");
     const container = document.getElementById("daftarTugasContainer");
     const filterBtns = document.querySelectorAll(".filter-btn");
     const toastEl = document.getElementById("toastMsg");
@@ -876,47 +915,69 @@
         });
     }
 
+    function showForm() {
+        document.getElementById("formSection").classList.remove("hidden");
+        document.getElementById("resultSection").classList.add("hidden");
+        const kembaliBtn = document.getElementById("kembaliBtn");
+        if (kembaliBtn) {
+            kembaliBtn.classList.remove("hidden");
+        }
+    }
+
     function renderTasks() {
+        const formSection = document.getElementById("formSection");
+        const resultSection = document.getElementById("resultSection");
+        const lihatBtn = document.getElementById("lihatBtn");
+
+        if (tasks.length === 0) {
+            formSection.classList.remove("hidden");
+            resultSection.classList.add("hidden");
+
+            if(lihatBtn){
+                lihatBtn.style.display = "none";
+            }
+
+            return;
+        }
+
+        if(lihatBtn){
+            lihatBtn.style.display = "block";
+        }
+
+        formSection.classList.add("hidden");
+        resultSection.classList.remove("hidden");
+
         let filteredTasks = tasks;
+
         if (activeFilter === "belum") {
             filteredTasks = tasks.filter(t => !t.completed);
         } else if (activeFilter === "selesai") {
             filteredTasks = tasks.filter(t => t.completed);
         }
 
-        filteredTasks.sort((a, b) => {
-            if (a.completed !== b.completed) return a.completed ? 1 : -1;
-            if (a.deadline && b.deadline) {
-                return new Date(a.deadline) - new Date(b.deadline);
-            }
-            return 0;
-        });
-
         if (filteredTasks.length === 0) {
-            container.innerHTML = `<div class="empty-msg">📭 Tidak ada PR/Tugas 😃</div>`;
+            container.innerHTML =
+                `<div class="empty-msg">📭 Tidak ada PR/Tugas 😃</div>`;
             return;
         }
 
         container.innerHTML = "";
+
         filteredTasks.forEach(task => {
             const taskDiv = document.createElement("div");
-            taskDiv.className = "task-item";
             const h1Status = !task.completed && isH1(task.deadline) && !isOverdue(task.deadline);
             
             let borderColor = "#667eea";
             if (h1Status) {
                 borderColor = "#f59e0b";
-                taskDiv.classList.add("h-1");
             } else if (!task.completed && isOverdue(task.deadline)) {
                 borderColor = "#ef4444";
             } else if (task.completed) {
                 borderColor = "#10b981";
             }
-            taskDiv.style.borderLeftColor = borderColor;
 
             const statusText = task.completed ? "✅ Selesai" : "⏳ Belum";
             const statusClass = task.completed ? "selesai" : "belum";
-
             const deadlineDisplay = formatDeadline(task.deadline);
             let deadlineExtra = "";
             let reminderBadge = "";
@@ -931,25 +992,28 @@
             }
 
             taskDiv.innerHTML = `
-                <div class="task-info">
-                    <div class="task-title">
-                        <span>📖 ${escapeHtml(task.nama)}</span>
-                        <span class="status ${statusClass}">${statusText}</span>
-                        ${reminderBadge}
+                <div class="task-item" style="border-left-color: ${borderColor}; ${h1Status ? 'background: #fffbeb;' : ''}">
+                    <div class="task-info">
+                        <div class="task-title">
+                            <span>📖 ${escapeHtml(task.nama)}</span>
+                            <span class="status ${statusClass}">${statusText}</span>
+                            ${reminderBadge}
+                        </div>
+                        ${task.deskripsi ? `<div class="task-desc">📄 ${escapeHtml(task.deskripsi)}</div>` : ''}
+                        <div class="task-meta">
+                            <span class="deadline ${h1Status ? 'warning' : ''}">
+                                ⏱️ ${deadlineDisplay}${deadlineExtra}
+                            </span>
+                            <span class="task-id">
+                                ID: ${task.id}
+                            </span>
+                        </div>
                     </div>
-                    ${task.deskripsi ? `<div class="task-desc">📄 ${escapeHtml(task.deskripsi)}</div>` : ''}
-                    <div class="task-meta">
-                        <span class="deadline ${h1Status ? 'warning' : ''}">
-                            ⏱️ ${deadlineDisplay}${deadlineExtra}
-                        </span>
-                        <span class="task-id">
-                            ID: ${task.id}
-                        </span>
+                    <div class="task-actions">
+                        ${!task.completed ? `<button class="btn-selesai" data-id="${task.id}">✔️ Selesai</button>` : `<button class="btn-selesai undo-selesai" data-id="${task.id}" style="background:#9ca3af;">↩️ Batal Selesai</button>`}
+                        <button class="btn-kembali" onclick="showForm()">Kembali</button>
+                        <button class="btn-hapus" data-id="${task.id}">🗑 Hapus</button>
                     </div>
-                </div>
-                <div class="task-actions">
-                    ${!task.completed ? `<button class="btn-selesai" data-id="${task.id}">✔️ Selesai</button>` : `<button class="btn-selesai undo-selesai" data-id="${task.id}" style="background:#9ca3af;">↩️ Batal Selesai</button>`}
-                    <button class="btn-hapus" data-id="${task.id}">🗑 Hapus</button>
                 </div>
             `;
 
@@ -1048,6 +1112,16 @@
             showToast("🗑 PR telah dihapus");
         }
     }
+
+    lihatBtn.addEventListener("click", () => {
+        if(tasks.length === 0){
+            showToast("📭 Belum ada PR/Tugas");
+            return;
+        }
+
+        document.getElementById("formSection").classList.add("hidden");
+        document.getElementById("resultSection").classList.remove("hidden");
+    });
 
     filterBtns.forEach(btn => {
         btn.addEventListener("click", () => {
